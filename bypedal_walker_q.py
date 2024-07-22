@@ -18,13 +18,11 @@ for i in range(1000000):
     action = None
     observation = tuple(round(obs, 2) for obs in observation)
     if random_num >= epsylon:
-        #choose best action so far
         for elem in look_up_table:
-            if observation == elem[0]:
-                if look_up_table[elem][0] > r:
-                    action = elem[1]
-                    r = look_up_table[elem][0]
-    if random_num < epsylon or action is None:
+            if observation == elem[0] and look_up_table[elem][0] > r:
+                action = elem[1]
+                r = look_up_table[elem][0]
+    elif random_num < epsylon or action is None:
         action = env.action_space.sample()
     action = tuple(round(act, 2) for act in action)
     #execute action a
