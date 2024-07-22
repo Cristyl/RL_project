@@ -2,7 +2,7 @@ import gymnasium as gym
 import random
 from gymnasium.wrappers import TimeLimit
 env = gym.make("BipedalWalker-v3")
-max_steps = 1600  # Specify the maximum number of steps
+max_steps = 1600
 env = TimeLimit(env, max_episode_steps=max_steps)
 observation, info = env.reset()
 look_up_table = {}
@@ -10,13 +10,13 @@ gamma = 0.9
 epsylon = 0.3
 
 #for certain number of times
-for i in range(100000):
+for i in range(1000000):
     #choose action a (chooses randamly an action)
     random_num = random.uniform(0,1)
     r = 0
     visits = 0
     action = None
-    observation = tuple(observation)
+    observation = tuple(round(obs, 2) for obs in observation)
     if random_num >= epsylon:
         #choose best action so far
         for elem in look_up_table:
@@ -26,15 +26,15 @@ for i in range(100000):
                     r = look_up_table[elem][0]
     if random_num < epsylon or action is None:
         action = env.action_space.sample()
-    action = tuple(action)
+    action = tuple(round(act, 2) for act in action)
     #execute action a
     #observe bew state s'
     #collect reward r
     observation1, reward, terminated, truncated, info = env.step(action)
-    observation1 = tuple(observation1)
+    observation1 = tuple(round(obs1, 2) for obs1 in observation1)
     #update or insert in table Q[s,a] as (1 - alpha)Q[s,a] + alpha(r + gamma X max(a')Q[s',a'])
     #define max_q as gretest reward for s'
-    max_q = float('-inf')
+    max_q = 0
     for elem in look_up_table:
         if observation1 == elem[0]:
             max_q = max(max_q, look_up_table[elem][0])
