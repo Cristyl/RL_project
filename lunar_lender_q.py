@@ -7,14 +7,11 @@ env = gym.make("LunarLander-v2")
 
 # Parameters for Q-learning
 look_up_table = {}
-gamma = 0.9
+gamma = 0.8
 alpha = 0.1  # Fixed learning rate
-num_episodes = 5000
-
-# Define discrete epsilon values and their respective ranges
-epsilon_values = [0.9, 0.7, 0.4, 0.1, 0.0]
-# Determine the number of episodes for each epsilon value
-episodes_per_epsilon = num_episodes // len(epsilon_values)
+num_episodes = 1000
+epsilon = 0.99
+epsilon_decay = 0.95
 
 # List to store total rewards per episode
 rewards_per_episode = []
@@ -39,11 +36,12 @@ def update_q_table(state, action, reward, next_state):
     current_q = look_up_table.get((state, action), 0)
     
     # Find the maximum Q-value for the next state
-    max_future_q = max(
-        (look_up_table.get((next_state, a), 0) for a in (a[1] for a in look_up_table if a[0] == next_state)),
-        default=0
-    )
-
+    q_values = {a[1]: look_up_table.get(a, 0) for a in look_up_table if a[0] == next_state}
+        
+    if not q_values:
+        max_future_q = 0
+    else:
+        max_future_q = max(q_values, key=q_values.get)
     # Q-learning update
     new_q = (1 - alpha) * current_q + alpha * (reward + gamma * max_future_q)
     look_up_table[(state, action)] = new_q
@@ -54,10 +52,7 @@ for episode in range(num_episodes):
     action_list = []
     total_reward = 0
     best_solution_r = 0
-
-    # Determine the current epsilon based on the episode range
-    current_epsilon_index = episode // episodes_per_epsilon
-    epsilon = epsilon_values[current_epsilon_index]
+    epsilon = epsilon * epsilon_decay
 
     while True:  # Run until the episode naturally ends
         # Select action
@@ -68,6 +63,7 @@ for episode in range(num_episodes):
 
         # Take action and observe new state and reward
         observation1, reward, terminated, truncated, info = env.step(action)
+       
         observation1 = tuple(round(obs, 1) for obs in observation1)
         total_reward += reward
 
@@ -97,12 +93,6 @@ plt.figure(figsize=(12, 6))
 plt.plot(rewards_per_episode, label='Total Reward per Episode')
 plt.xlabel('Episode')
 plt.ylabel('Total Reward')
-plt.title('Total Reward over Episodes with Discrete Epsilon Values')
 plt.grid(True)
-
-# Add vertical lines to indicate epsilon value changes
-for i in range(1, len(epsilon_values)):
-    plt.axvline(x=i * episodes_per_epsilon, color='r', linestyle='--', label=f'Epsilon change to {epsilon_values[i]}')
-
 plt.legend()
 plt.show()
