@@ -23,15 +23,14 @@ class DQNAgent:
     def _build_model(self):
         model = Sequential([
             InputLayer(shape=(self.observation_size,)),
-            Dense(24, activation='relu'),
-            Dense(24, activation='relu'),
+            Dense(16, activation='relu'),
             Dense(self.action_size)
         ])
         model.compile(optimizer=tf.keras.optimizers.Adam(), loss=tf.keras.losses.MeanSquaredError())
         return model
 
-    def remember(self, observation, action, reward, next_observation):
-        self.memory.append((observation, action, reward, next_observation))
+    def remember(self, observation, action, reward, next_observation, done):
+        self.memory.append((observation, action, reward, next_observation, done))
 
     def act(self, observation):
         if np.random.rand() <= self.epsilon:
@@ -45,11 +44,26 @@ class DQNAgent:
         indices = np.random.choice(len(memory_list), batch_size, replace=False)
         # Extract the sampled experiences
         minibatch = [memory_list[i] for i in indices]
-        for observation, action, reward, next_observation in minibatch:
-            target = (1 - self.alpha) * reward + self.alpha * (reward + self.gamma * np.amax(self.model.predict(next_observation, verbose=0)[0]))
-            target_f = self.model.predict(observation, verbose=0)
-            target_f[0][action] = target
-            self.model.fit(observation, target_f, epochs=1, verbose=0)
+
+        # Prepare training data
+        observations = np.zeros((batch_size, self.observation_size))
+        targets = np.zeros((batch_size, self.action_size))
+        
+        for i, (observation, action, reward, next_observation, done) in enumerate(minibatch):
+            target = reward
+            if not done:
+                target = (1 - self.alpha) * reward + self.alpha * (reward + self.gamma * np.amax(self.model.predict(next_observation, verbose=0)[0]))
+            
+            # Compute the current Q value
+            target_f = self.model.predict(observation, verbose=0)[0]
+            target_f[action] = target
+            observations[i] = observation
+            targets[i] = target_f
+
+        # Fit the model using the batch of observations and targets
+        self.model.fit(observations, targets, batch_size=batch_size, epochs=1, verbose=0)
+
+        # Decay the epsilon value
         if self.epsilon > self.epsilon_min:
             self.epsilon *= self.epsilon_decay
 
@@ -57,20 +71,22 @@ class DQNAgent:
 env = gym.make('LunarLander-v2')
 observation_size = env.observation_space.shape[0]
 action_size = env.action_space.n
+
 # Initialize the DQN agent
 agent = DQNAgent(observation_size, action_size)
 
 # Training loop
-batch_size = 32
-num_episodes = 1000
+batch_size = 64
+num_episodes = 100
 episode_rewards = []
 for episode in range(num_episodes):
     observation, info = env.reset()
+    print("episode: ", episode)
     observation = np.reshape(observation, [1, observation_size])
     total_reward = 0
     for t in range(500):
         # Render the environment (optional)
-        #env.render()
+        # env.render()
 
         # Choose an action
         action = agent.act(observation)
@@ -80,7 +96,7 @@ for episode in range(num_episodes):
         next_observation = np.reshape(next_observation, [1, observation_size])
 
         # Remember the experience
-        agent.remember(observation, action, reward, next_observation)
+        agent.remember(observation, action, reward, next_observation, terminated or truncated)
 
         # Update the state
         observation = next_observation
@@ -89,14 +105,15 @@ for episode in range(num_episodes):
 
         # Check if episode is finished
         if terminated or truncated:
+            episode_rewards.append(total_reward)
             if total_reward >= 200:
                 print("success with reward: ", total_reward)
-                print("episode :", episode)
             break
 
         # Train the agent
         if len(agent.memory) > batch_size:
             agent.replay(batch_size)
+
 # Plotting the rewards
 plt.figure(figsize=(10, 5))
 plt.plot(episode_rewards)
